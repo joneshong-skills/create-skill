@@ -1,3 +1,5 @@
+[English](README.md) | [繁體中文](README.zh.md)
+
 # create-skill
 
 A Claude Code skill that guides the creation of new Claude Code skills from user requirements.
