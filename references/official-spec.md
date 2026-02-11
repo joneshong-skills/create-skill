@@ -141,6 +141,22 @@ After fetching latest spec, check for differences in:
 
 ---
 
+## Intentional Deviations
+
+The following differences from the official spec are deliberate design choices. Do NOT
+flag these as issues during freshness checks.
+
+| Our Convention | Official Spec | Rationale |
+|---------------|---------------|-----------|
+| `version: 0.x.x` in frontmatter | Not in allowed properties | Enables change tracking across skill-optimizer updates; low cost, high utility |
+| `tools:` field name | Should be `allowed-tools` | More intuitive; Claude Code runtime accepts both |
+| Description: "This skill should be used when..." | Third person recommended | Proven high trigger rate in practice; explicit "when" framing reduces false positives |
+
+**Principle**: Align with the official spec for interoperability, but diverge when our
+convention is demonstrably better for our use case. Diversity of approaches is healthy.
+
+---
+
 ## Changelog
 
 ### 2026-02-06
