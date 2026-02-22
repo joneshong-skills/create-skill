@@ -6,8 +6,8 @@ description: >-
   "build a skill", "add a skill", "write a skill", "generate a skill",
   "set up a skill", or discusses creating Claude Code skills,
   skill development, skill templates, or SKILL.md authoring.
-version: 0.3.0
-tools: Read, Glob, Grep, Bash, Edit, Write, WebSearch
+version: 0.5.0
+tools: Read, Glob, Grep, Bash, Edit, Write, WebSearch, sandbox_execute
 argument-hint: "<skill description or name>"
 ---
 
@@ -16,6 +16,10 @@ argument-hint: "<skill description or name>"
 Guide the creation of effective, well-structured Claude Code skills. A skill is an
 "onboarding guide" that transforms Claude from a general-purpose agent into a specialized one
 equipped with procedural knowledge no model fully possesses.
+
+## Agent Delegation
+
+Delegate skill scaffolding to `worker` agent.
 
 ## Core Principles
 
@@ -52,6 +56,87 @@ Skills use a three-level loading system:
 **Critical**: The `description` field is the ONLY part always visible to Claude.
 All trigger conditions and "when to use" information MUST be in the description.
 Writing "When to Use" sections in the body is wasteful — the body loads only AFTER triggering.
+
+## Pre-Creation Assessment
+
+Before creating any skill, run these checks:
+
+### Overlap Check
+
+Scan the existing skill inventory for overlaps:
+
+**Preferred (Sandbox)**:
+```python
+# sandbox_execute (python) — batch overlap check
+import os, sys, json
+from pathlib import Path
+sys.path.insert(0, os.path.expanduser("~/.claude/skills/skill-catalog/scripts"))
+from extract_catalog import extract_skill
+
+skills_dir = Path(os.path.expanduser("~/.claude/skills"))
+guides_dir = skills_dir / "skill-catalog" / "guides"
+catalog = []
+for d in sorted(skills_dir.iterdir()):
+    if not d.is_dir() or d.name.startswith("."):
+        continue
+    entry = extract_skill(d, guides_dir=guides_dir)
+    if entry:
+        catalog.append({"name": entry["name"], "domain": entry["domain"], "pain_point": entry["pain_point"][:80]})
+output({"skills": len(catalog), "catalog": catalog})
+```
+
+**Fallback (Bash)**:
+```bash
+python3 ~/.claude/skills/skill-catalog/scripts/extract_catalog.py --format json \
+  | python3 -c "import json,sys; [print(f'{s[\"name\"]:30s} {s[\"domain\"]:20s} {s[\"pain_point\"][:80]}') for s in json.loads(sys.stdin.read())]"
+```
+
+If a similar skill exists, evaluate carefully:
+- **Merge candidate**: The existing skill covers 70%+ of the same scope → enhance it instead
+- **Complement**: Different angle on the same domain → proceed but ensure clear boundaries
+- **Distinct**: Less than 30% overlap → safe to create
+
+### Agent Mapping Check
+
+Every new skill should specify which agent(s) it delegates to. Check the existing agent inventory:
+
+```bash
+python3 ~/.claude/skills/create-agent/scripts/list_agents.py
+```
+
+Determine the best fit:
+- **Existing agent covers it** → Reference that agent in the skill's `## Agent Delegation` section
+- **No agent fits** → Consider creating a new one via `/create-agent` if 3+ skills would share it
+- **No delegation needed** → Skill runs entirely in main context (simple, short tasks)
+
+The generated SKILL.md must include an `## Agent Delegation` section (after the intro,
+before the workflow) specifying: which agent, delegation pattern, and example Task() call.
+
+### Scope Calibration
+
+Skills that are too broad fail to deliver concrete value; too narrow creates inventory clutter.
+
+| Signal | Too Broad | Right Size | Too Narrow |
+|--------|-----------|------------|------------|
+| Trigger phrases | 20+ unrelated phrases | 5-10 focused phrases | 1-2 phrases only |
+| Workflow steps | Branches into 5+ paths | 1 main path + variants | Single action |
+| Scripts | 10+ scripts, each different | 2-5 complementary scripts | 0, trivial task |
+| Example | "handle all documents" | "create/edit/merge PDFs" | "rotate PDF page 1" |
+
+When in doubt, start with a focused scope and grow via `skill-optimizer`.
+
+### Batch Creation with Agent Teams
+
+When creating **2+ skills at once**, use agent teams for parallel execution:
+
+```
+/team-tasks
+Task: Create skills [skill-a, skill-b, skill-c] in parallel.
+Each agent: scaffold → write SKILL.md → create scripts → validate.
+Shared context: naming conventions from existing skill list, CLI-neutral language.
+```
+
+Each agent handles one skill independently. Merge results after all complete.
 
 ## Specification Freshness Check
 
@@ -112,6 +197,19 @@ Also determine:
 - **Invocation style**: Auto-invoke (default) or user-only (`disable-model-invocation: true`)?
 - **Placement**: User skill (`~/.claude/skills/`) or plugin skill?
 
+#### Adapting from Reference Material
+
+When the user provides an external skill, template, or example as reference:
+
+1. **Extract the core idea** — What problem does it solve? What workflow does it encode?
+2. **Adapt to our environment** — Rewrite paths, tool names, and conventions to match `~/.claude/skills/` layout.
+   Reference existing skills for style: read 2-3 similar skills in our inventory first.
+3. **Rename to fit our conventions** — Use kebab-case, descriptive but concise names consistent
+   with the existing inventory (check with `ls ~/.claude/skills/`).
+4. **Strip vendor lock-in** — Remove references to specific CLI tools unless inherently necessary.
+5. **Add our patterns** — Include bilingual triggers (en + zh-TW), structured description field,
+   and proper version numbering.
+
 ### Phase 3: Initialize the Skill
 
 Run the scaffolding script to create the directory structure:
@@ -147,7 +245,11 @@ version: 0.1.0
 ```
 
 Rules:
-- `name`: kebab-case identifier
+- `name`: kebab-case identifier. Follow existing naming conventions:
+  - Action-focused: `create-skill`, `smart-search`, `sync-config`
+  - Domain-focused: `competitive-intel`, `meeting-insights`
+  - Format-focused: `pdf`, `docx`, `pptx`, `xlsx`
+  - Avoid CLI-specific names (no `claude-*` or `gemini-*` unless truly CLI-specific)
 - `description`: Include BOTH what the skill does AND all trigger phrases/contexts.
   This is the primary triggering mechanism — be comprehensive.
 - Only `name` and `description` are required. Optional fields: `version`, `tools`,
@@ -159,12 +261,23 @@ Write in **imperative/infinitive form** (verb-first), never second person:
 - Good: "Parse the config file before processing."
 - Bad: "You should parse the config file."
 
+**CLI-Neutral Language**: Skills sync across Claude Code, Codex CLI, and Gemini CLI.
+Avoid hardcoding CLI-specific commands or assumptions. Use generic terms:
+- Good: "Run the script", "Execute in terminal"
+- Bad: "Use claude -p to run", "In Codex exec..."
+- Exception: Skills that are inherently CLI-specific (e.g., `claude-code-headless`) may reference their target CLI.
+
 Body structure:
 
 ```markdown
 # Skill Title
 
 Brief purpose (1-2 sentences).
+
+## Agent Delegation
+
+[Which agent(s) this skill delegates to, delegation pattern, example Task() call.
+If no delegation needed, state: "This skill runs entirely in main context."]
 
 ## Core Concepts / Principles
 [Essential knowledge Claude doesn't already have]
@@ -257,6 +370,34 @@ The audience is an AI agent, not a human reader.
 | **User-Only** | Side effects, irreversible actions | `disable-model-invocation: true` |
 
 For detailed examples of each type, see `references/skill-patterns.md`.
+
+## Sandbox Optimization
+
+Pre-Creation Assessment and Phase 5 (Validate) benefit from sandbox execution:
+
+- **Overlap Check**: Import `extract_catalog.py` in sandbox to scan all 73+ skills and return only name+domain+pain_point (~1.5K tokens vs ~18K tokens for full catalog).
+- **Phase 5 Validate**: Import `quick_validate.py` in sandbox to run validation and return only pass/fail results with specific errors.
+
+Principle: **Catalog scanning + validation → sandbox; skill design decisions → LLM.**
+
+## Continuous Improvement
+
+This skill evolves with each use. After every invocation:
+
+1. **Reflect** — Identify what worked, what caused friction, and any unexpected issues
+2. **Record** — Append a concise lesson to `lessons.md` in this skill's directory
+3. **Refine** — When a pattern recurs (2+ times), update SKILL.md directly
+
+### lessons.md Entry Format
+
+```
+### YYYY-MM-DD — Brief title
+- **Friction**: What went wrong or was suboptimal
+- **Fix**: How it was resolved
+- **Rule**: Generalizable takeaway for future invocations
+```
+
+Accumulated lessons signal when to run `/skill-optimizer` for a deeper structural review.
 
 ## Additional Resources
 
