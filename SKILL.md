@@ -65,7 +65,7 @@ Before creating any skill, run these checks:
 
 Scan the existing skill inventory for overlaps:
 
-**Non-functional (sandbox path blocked) — use Bash instead**:
+**Preferred (Sandbox)**:
 ```python
 # sandbox_execute (python) — batch overlap check
 import os, sys, json
@@ -375,8 +375,12 @@ For detailed examples of each type, see `references/skill-patterns.md`.
 
 Pre-Creation Assessment and Phase 5 (Validate) benefit from sandbox execution:
 
-- **Overlap Check**: Run via Bash: `python3 ~/.claude/skills/skill-catalog/scripts/extract_catalog.py` — scans all 73+ skills, returns only name+domain+pain_point (~1.5K tokens vs ~18K tokens).
-- **Phase 5 Validate**: Run via Bash: `python3 ~/.claude/skills/create-skill/scripts/quick_validate.py` — returns only pass/fail results with specific errors.
+- **Overlap Check**: Import `scripts/extract_catalog.py` in sandbox — scans all 73+ skills, returns only name+domain+pain_point (~1.5K tokens vs ~18K tokens). `~/.claude/` imports now supported.
+- **Phase 5 Validate**: Import `scripts/quick_validate.py` in sandbox — returns only pass/fail results with specific errors.
+
+Fallback (Bash):
+- `python3 ~/.claude/skills/skill-catalog/scripts/extract_catalog.py` — overlap check via Bash when sandbox is unavailable
+- `python3 ~/.claude/skills/create-skill/scripts/quick_validate.py` — validate via Bash
 
 Principle: **Catalog scanning + validation → sandbox; skill design decisions → LLM.**
 
