@@ -9,6 +9,13 @@ description: >-
 version: 0.5.0
 tools: Read, Glob, Grep, Bash, Edit, Write, WebSearch, sandbox_execute
 argument-hint: "<skill description or name>"
+io:
+  input:
+    - mime: "text/plain"
+      description: "Skill concept and requirements"
+  output:
+    - mime: "text/markdown"
+      description: "Generated SKILL.md and supporting files"
 ---
 
 # Create Skill for Claude Code
@@ -20,6 +27,13 @@ equipped with procedural knowledge no model fully possesses.
 ## Agent Delegation
 
 Delegate skill scaffolding to `worker` agent.
+
+When a skill delegates to write-access agents, include boundary declarations in the
+Task prompt (see `~/.claude/rules/sub-agent.md` § Capability Boundaries):
+```
+CAN DO: [files/operations the agent may touch]
+CANNOT DO: [out-of-scope files/operations]
+```
 
 ## Core Principles
 
@@ -57,6 +71,16 @@ Skills use a three-level loading system:
 All trigger conditions and "when to use" information MUST be in the description.
 Writing "When to Use" sections in the body is wasteful — the body loads only AFTER triggering.
 
+## Anvil Integration
+
+Delegate mechanical operations to Anvil, keep LLM reasoning here:
+- **Scaffold**: `~/.local/bin/anvil create <name>` generates boilerplate (SKILL.md + README.md)
+- **Overlap data**: `~/.local/bin/anvil catalog --json` or MCP `anvil_catalog` for current inventory
+- **Post-creation**: `~/.local/bin/anvil sync` to register new skill in DB, `~/.local/bin/anvil test <name>` for T1-T4
+
+This skill's value is the **intelligent design** — overlap analysis, trigger design,
+description crafting, progressive disclosure — which requires LLM reasoning.
+
 ## Pre-Creation Assessment
 
 Before creating any skill, run these checks:
@@ -65,7 +89,12 @@ Before creating any skill, run these checks:
 
 Scan the existing skill inventory for overlaps:
 
-**Preferred (Sandbox)**:
+**Preferred (Anvil)**:
+```bash
+~/.local/bin/anvil catalog --json  # Get full inventory from DB with versions/tags
+```
+
+**Fallback (Sandbox)**:
 ```python
 # sandbox_execute (python) — batch overlap check
 import os, sys, json
@@ -85,12 +114,6 @@ for d in sorted(skills_dir.iterdir()):
 output({"skills": len(catalog), "catalog": catalog})
 ```
 
-**Fallback (Bash)**:
-```bash
-python3 ~/.claude/skills/skill-catalog/scripts/extract_catalog.py --format json \
-  | python3 -c "import json,sys; [print(f'{s[\"name\"]:30s} {s[\"domain\"]:20s} {s[\"pain_point\"][:80]}') for s in json.loads(sys.stdin.read())]"
-```
-
 If a similar skill exists, evaluate carefully:
 - **Merge candidate**: The existing skill covers 70%+ of the same scope → enhance it instead
 - **Complement**: Different angle on the same domain → proceed but ensure clear boundaries
@@ -101,13 +124,17 @@ If a similar skill exists, evaluate carefully:
 Every new skill should specify which agent(s) it delegates to. Check the existing agent inventory:
 
 ```bash
-python3 ~/.claude/skills/create-agent/scripts/list_agents.py
+~/.local/bin/python3 ~/.claude/skills/create-agent/scripts/list_agents.py
 ```
 
 Determine the best fit:
 - **Existing agent covers it** → Reference that agent in the skill's `## Agent Delegation` section
 - **No agent fits** → Consider creating a new one via `/create-agent` if 3+ skills would share it
 - **No delegation needed** → Skill runs entirely in main context (simple, short tasks)
+- **Full Opus delegation (tmux-relay)** → For skills needing fully-equipped Claude
+  Code instances with complete skill/MCP/tool/agent access. Handles complex problems,
+  staged tasks, grouped subtasks, or any pattern beyond dispatcher/foreman. Cost is
+  high (full Opus per pane); only recommend when simpler patterns are insufficient.
 
 The generated SKILL.md must include an `## Agent Delegation` section (after the intro,
 before the workflow) specifying: which agent, delegation pattern, and example Task() call.
@@ -125,9 +152,15 @@ Skills that are too broad fail to deliver concrete value; too narrow creates inv
 
 When in doubt, start with a focused scope and grow via `skill-optimizer`.
 
-### Batch Creation with Agent Teams
+### Batch Creation (2+ Skills at Once)
 
-When creating **2+ skills at once**, use agent teams for parallel execution:
+Choose execution tier based on need:
+
+- **Agent Teams**: When skills need real-time cross-reference (e.g., shared domain conventions).
+  Fast but no MCP/skill access in teammates.
+- **tmux-relay**: When each skill creation needs full tool access (MCP, other skills, etc.).
+  Most capable but highest cost. Use when `WORKSHOP_FORCE_RELAY=1` or tasks are complex.
+- **Headless**: When skills are independent and simple. Cheapest.
 
 ```
 /team-tasks
@@ -212,10 +245,12 @@ When the user provides an external skill, template, or example as reference:
 
 ### Phase 3: Initialize the Skill
 
-Run the scaffolding script to create the directory structure:
+Run scaffolding via Anvil CLI (preferred) or the legacy init script:
 
 ```bash
-python3 ~/.claude/skills/create-skill/scripts/init_skill.py <skill-name> [--path <dir>]
+~/.local/bin/anvil create <skill-name>  # Preferred: scaffold + auto-register in DB
+# Fallback:
+~/.local/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/init_skill.py <skill-name> [--path <dir>]
 ```
 
 The script creates:
@@ -317,7 +352,7 @@ Delete any placeholder files from `init_skill.py` that aren't needed.
 Run the validation script:
 
 ```bash
-python3 ~/.claude/skills/create-skill/scripts/quick_validate.py <path/to/skill>
+~/.local/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/quick_validate.py <path/to/skill>
 ```
 
 The script checks:
@@ -329,12 +364,23 @@ The script checks:
 - All referenced files exist
 - No extraneous documentation files
 
+### Phase 5b: Validate Frontmatter with yq
+
+After running `quick_validate.py`, confirm YAML frontmatter fields are well-formed:
+
+```bash
+# Verify required fields are present and non-empty
+yq eval '.name, .version, .triggers' path/to/SKILL.md
+```
+
+Empty output for any field = missing value; fix before proceeding to Phase 6.
+
 ### Phase 6: Package (Optional)
 
 For distributing skills as `.skill` files:
 
 ```bash
-python3 ~/.claude/skills/create-skill/scripts/package_skill.py <path/to/skill> [output-dir]
+~/.local/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/package_skill.py <path/to/skill> [output-dir]
 ```
 
 Creates a `.skill` file (zip format) after running validation automatically.
@@ -379,8 +425,8 @@ Pre-Creation Assessment and Phase 5 (Validate) benefit from sandbox execution:
 - **Phase 5 Validate**: Import `scripts/quick_validate.py` in sandbox — returns only pass/fail results with specific errors.
 
 Fallback (Bash):
-- `python3 ~/.claude/skills/skill-catalog/scripts/extract_catalog.py` — overlap check via Bash when sandbox is unavailable
-- `python3 ~/.claude/skills/create-skill/scripts/quick_validate.py` — validate via Bash
+- `~/.local/bin/python3 ~/.claude/skills/skill-catalog/scripts/extract_catalog.py` — overlap check via Bash when sandbox is unavailable
+- `~/.local/bin/python3 ${CLAUDE_SKILL_DIR}/scripts/quick_validate.py` — validate via Bash
 
 Principle: **Catalog scanning + validation → sandbox; skill design decisions → LLM.**
 
