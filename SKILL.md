@@ -417,6 +417,10 @@ The audience is an AI agent, not a human reader.
 
 For detailed examples of each type, see `references/skill-patterns.md`.
 
+## See Also
+
+- **`create-agent`** — To create a new agent (reusable role definition), see `create-agent`.
+
 ## Sandbox Optimization
 
 Pre-Creation Assessment and Phase 5 (Validate) benefit from sandbox execution:
