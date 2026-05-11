@@ -21,7 +21,7 @@ SKILLS_DIR = Path.home() / ".claude" / "skills"
 
 def validate_name(name: str) -> str | None:
     """Validate skill name is kebab-case. Returns error message or None."""
-    if not re.match(r'^[a-z][a-z0-9]*(-[a-z0-9]+)*$', name):
+    if not re.match(r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$", name):
         return (
             f"Invalid skill name '{name}'. "
             "Must be kebab-case (lowercase letters, numbers, hyphens). "
@@ -32,7 +32,7 @@ def validate_name(name: str) -> str | None:
     return None
 
 
-SKILL_MD_TEMPLATE = '''---
+SKILL_MD_TEMPLATE = """---
 name: {name}
 description: >-
   TODO: Describe when this skill should be used.
@@ -45,6 +45,26 @@ version: 0.1.0
 # {title}
 
 TODO: Brief description of purpose (1-2 sentences).
+
+## Why This Exists
+
+<!-- One sentence: what unique value does this skill provide that general Claude cannot? -->
+TODO: e.g., "Encodes institutional knowledge about X that Claude cannot derive from public info alone."
+
+## Use When
+
+<!-- List concrete trigger conditions — be specific so Claude (and humans) can decide correctly. -->
+- TODO: User asks to "..." or mentions keyword X
+- TODO: Context involves Y situation
+- TODO: Input is of type Z
+
+## Do Not Use When
+
+<!-- Anti-triggers prevent misuse. At least 2 bullets required. -->
+<!-- This section is the most important: a skill invoked in the wrong context wastes tokens or causes errors. -->
+- TODO: Task is simpler than this skill's scope (use direct answer instead)
+- TODO: Required input/dependency is missing
+- TODO: Another skill (name-of-skill) covers this case better
 
 ## Core Concepts
 
@@ -69,9 +89,9 @@ TODO: Tables, cheat sheets, decision trees.
 
 ### Scripts
 - **`scripts/example.py`** — TODO: Description
-'''
+"""
 
-EXAMPLE_REFERENCE = '''# Reference Guide
+EXAMPLE_REFERENCE = """# Reference Guide
 
 TODO: Detailed documentation that supports the skill.
 
@@ -82,7 +102,7 @@ TODO: Detailed documentation that supports the skill.
 ## Section 2
 
 ...
-'''
+"""
 
 EXAMPLE_SCRIPT = '''#!/usr/bin/env python3
 """TODO: Description of what this script does.
@@ -102,11 +122,11 @@ if __name__ == "__main__":
     main()
 '''
 
-EXAMPLE_ASSET_README = '''# Assets
+EXAMPLE_ASSET_README = """# Assets
 
 Place files here that are used in the skill's output but should NOT be loaded
 into Claude's context window. Examples: templates, images, fonts, boilerplate code.
-'''
+"""
 
 
 def init_skill(name: str, base_path: Path) -> Path:
@@ -127,9 +147,7 @@ def init_skill(name: str, base_path: Path) -> Path:
     title = name.replace("-", " ").title()
 
     # Write files
-    (skill_dir / "SKILL.md").write_text(
-        SKILL_MD_TEMPLATE.format(name=name, title=title)
-    )
+    (skill_dir / "SKILL.md").write_text(SKILL_MD_TEMPLATE.format(name=name, title=title))
     (skill_dir / "references" / "guide.md").write_text(EXAMPLE_REFERENCE)
     (skill_dir / "scripts" / "example.py").write_text(EXAMPLE_SCRIPT)
     (skill_dir / "assets" / ".gitkeep").write_text("")
@@ -138,13 +156,10 @@ def init_skill(name: str, base_path: Path) -> Path:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Initialize a new Claude Code skill"
-    )
+    parser = argparse.ArgumentParser(description="Initialize a new Claude Code skill")
     parser.add_argument("name", help="Skill name (kebab-case)")
     parser.add_argument(
-        "--path", default=str(SKILLS_DIR),
-        help=f"Output directory (default: {SKILLS_DIR})"
+        "--path", default=str(SKILLS_DIR), help=f"Output directory (default: {SKILLS_DIR})"
     )
     args = parser.parse_args()
 
@@ -166,8 +181,10 @@ def main():
     print()
     print("Next steps:")
     print(f"  1. Edit {skill_dir}/SKILL.md — fill in TODO placeholders")
-    print(f"  2. Customize or remove placeholder files in scripts/, references/, assets/")
-    print(f"  3. Validate: python3 ~/.claude/skills/create-skill/scripts/quick_validate.py {skill_dir}")
+    print("  2. Customize or remove placeholder files in scripts/, references/, assets/")
+    print(
+        f"  3. Validate: python3 ~/.claude/skills/create-skill/scripts/quick_validate.py {skill_dir}"
+    )
 
 
 if __name__ == "__main__":
