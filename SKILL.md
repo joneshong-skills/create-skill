@@ -425,7 +425,7 @@ For detailed examples of each type, see `references/skill-patterns.md`.
 
 Pre-Creation Assessment and Phase 5 (Validate) benefit from sandbox execution:
 
-- **Overlap Check**: Import `scripts/extract_catalog.py` in sandbox — scans all 73+ skills, returns only name+domain+pain_point (~1.5K tokens vs ~18K tokens). `~/.claude/` imports now supported.
+- **Overlap Check**: Import `~/.claude/skills/skill-catalog/scripts/extract_catalog.py` in sandbox — scans all 73+ skills, returns only name+domain+pain_point (~1.5K tokens vs ~18K tokens). `~/.claude/` imports now supported.
 - **Phase 5 Validate**: Import `scripts/quick_validate.py` in sandbox — returns only pass/fail results with specific errors.
 
 Fallback (Bash):
