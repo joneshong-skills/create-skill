@@ -159,7 +159,7 @@ Choose execution tier based on need:
 - **Agent Teams**: When skills need real-time cross-reference (e.g., shared domain conventions).
   Fast but no MCP/skill access in teammates.
 - **tmux-relay**: When each skill creation needs full tool access (MCP, other skills, etc.).
-  Most capable but highest cost. Use when `WORKSHOP_FORCE_RELAY=1` or tasks are complex.
+  Most capable but highest cost. Use for complex tasks, or when your setup forces the heaviest tier.
 - **Headless**: When skills are independent and simple. Cheapest.
 
 ```
